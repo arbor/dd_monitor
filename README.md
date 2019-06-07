@@ -27,6 +27,7 @@ end
 $ ./dd_monitor --action list-all    
 $ ./dd_monitor --action get-monitor <query_param>
 $ ./dd_monitor --action get-monitor test
+$ ./dd_monitor --action get-monitor-id "test" "tag:env:test"
 ```
 
 

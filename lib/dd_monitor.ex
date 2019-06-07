@@ -12,8 +12,11 @@ defmodule DdMonitor.CLI do
 
   ## Examples
 
-      iex> start
-      :response
+      iex> ./dd_monitor
+      The simulator supports following commands:
+
+      --action get-monitr tag:env:staging - get a monitor by query tag
+      --action list-all - list all monitors
 
   """
 
@@ -28,7 +31,17 @@ defmodule DdMonitor.CLI do
         list_all_monitors() |> prettify() |> IO.puts()
 
       [action: "get-monitor"] ->
-        get_monitor(%{query: List.to_string(param)}) |> prettify() |> IO.puts()
+        get_monitor(%{
+          query: build_query(param)
+        })
+        |> prettify()
+        |> IO.puts()
+
+      [action: "get-monitor-id"] ->
+        get_monitor(%{query: build_query(param)})
+        |> get_monitor_id()
+        |> prettify()
+        |> IO.puts()
 
       [] ->
         print_help_message()
@@ -41,7 +54,8 @@ defmodule DdMonitor.CLI do
 
   @commands %{
     "--action list-all" => "list all monitors",
-    "--action get-monitr tag:env:staging" => "get a monitor by query tag"
+    "--action get-monitor \"tag:env:staging\" \"name\"" => "get monitor details by query tag",
+    "--action get-monitor-id \"tag:env:test\" \"name\"" => "get a monitor id by query tag"
   }
 
   defp print_help_message do
@@ -103,6 +117,11 @@ defmodule DdMonitor.CLI do
       headers: headers(),
       url: params.url()
     }
+  end
+
+  defp build_query(param) when is_list(param) do
+    param
+    |> Enum.reduce(fn x, acc -> "#{x} #{acc}" end)
   end
 
   @doc """
@@ -240,5 +259,19 @@ defmodule DdMonitor.CLI do
 
   defp prettify(monitor) when is_map(monitor) do
     Poison.encode!(%{monitor: monitor}, pretty: true)
+  end
+
+  defp get_monitor_id(%{"monitors" => monitors}) do
+    monitors
+    |> List.flatten()
+    |> Enum.map(
+      &%{
+        id: &1["id"],
+        name: &1["name"],
+        metrics: &1["metrics"],
+        status: &1["status"],
+        tags: &1["tags"]
+      }
+    )
   end
 end
