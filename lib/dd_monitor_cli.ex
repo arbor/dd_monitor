@@ -21,41 +21,53 @@ defmodule DdMonitorCli do
     IEx.pry()
   end
 
-  defp headers do
+  def headers do
     headers = [{"Content-type", "application/json"}]
     headers
   end
 
-  defp api_key do
+  def api_key do
     api_key = System.get_env("DATADOG_API_KEY") || raise("ENV variable not set: DATADOG_API_KEY")
     api_key
   end
 
-  defp app_key do
+  def app_key do
     app_key = System.get_env("DATADOG_APP_KEY") || raise("ENV variable not set: DATADOG_APP_KEY")
     app_key
   end
 
-  defp auth do
-    Poison.encode!(%{"api_key" => api_key(), "application_key" => app_key()})
+  def auth do
+    %{"api_key" => api_key(), "application_key" => app_key()}
   end
 
-  defp monitor_url do
-    "https://api.datadoghq.com/api/v1/monitor?api_key=#{api_key()}&application_key=#{app_key()}"
+  def base_url(uri, query_params = %{query: _param}) do
+    search_url = "/api/v1/monitor/" <> uri
+    url = URI.merge(base_url(), search_url) |> to_string
+    # TODO: Move below to another function
+    url <> "?" <> build_uri(query_params)
   end
 
-  defp query(search_param \\ %{}) do
-    "https://api.datadoghq.com/api/v1/monitor/search?api_key=#{api_key()}&application_key=#{
-      app_key()
-    }&query=${query}"
+  def base_url do
+    "https://api.datadoghq.com/api/v1/monitor"
+  end
+
+  def build_uri(uri) do
+    auth()
+    |> Enum.into(uri)
+    |> URI.encode_query()
+  end
+
+  def build_uri() do
+    auth()
+    |> Enum.into(%{})
+    |> URI.encode_query()
   end
 
   def build_request(params) do
     %HTTPoison.Request{
       method: params.method,
       headers: headers(),
-      url: params.url(),
-      body: params.body()
+      url: params.url()
     }
   end
 
@@ -102,15 +114,89 @@ defmodule DdMonitorCli do
   """
 
   def list_all_monitors() do
+    # TODO: Move below to another function
+    url = base_url() <> "?" <> build_uri()
+
     req =
       build_request(%{
         method: :get,
         headers: headers(),
-        url: monitor_url(),
-        body: auth()
+        url: url
       })
 
     {:ok, %{status_code: _status_code, body: body}} = request(req)
+    body |> parse!
+  end
+
+  @doc """
+  get_monitory(%{query: params})
+
+  ## Examples
+
+
+      iex> get_monitor(%{query: "tag:\"env:test\" name"})
+      %{
+        "counts" => %{
+          "muted" => [%{"count" => 14, "name" => false}],
+          "status" => [%{"count" => 14, "name" => "OK"}],
+          "tag" => [
+            %{"count" => 14, "name" => "env:test"},
+            %{"count" => 13, "name" => "account:test"},
+          ],
+          "type" => [
+            %{"count" => 6, "name" => "integration"},
+            %{"count" => 4, "name" => "process"},
+            %{"count" => 2, "name" => "host"},
+            %{"count" => 1, "name" => "event"},
+            %{"count" => 1, "name" => "metric"}
+          ]
+        },
+        "metadata" => %{
+          "page" => 0,
+          "page_count" => 14,
+          "per_page" => 30,
+          "total_count" => 14
+        },
+        "monitors" => [
+          %{
+            "classification" => "integration",
+            "creator" => %{
+              "handle" => "test@example.com",
+              "id" => 52,
+              "name" => "Test User"
+            },
+            "id" => 80,
+            "last_triggered_ts" => 1559714659,
+            "metrics" => ["nginx.net.conn_dropped_per_s"],
+            "name" => "[name test]",
+            "notifications" => [%{"handle" => "test", "name" => "test"}],
+            "org_id" => 1,
+            "overall_state_modified" => 1559797460,
+            "scopes" => ["roles:name", "test"],
+            "status" => "OK",
+            "tags" => ["type:infrastructure", "env:test",
+             "roles:name", "account:test",
+             "monitor_id:nginx_dropped_connections", "env:test"],
+            "type" => "metric alert"
+          },
+          ...
+      }
+  """
+  def get_monitor(%{query: _query_param} = query) do
+    url = base_url("search", query)
+
+    req =
+      build_request(%{
+        method: :get,
+        headers: headers(),
+        url: url
+      })
+
+    {:ok, %{status_code: _status_code, body: body}} = request(req)
+    body |> parse!
+  end
+
+  def parse!(body) do
     Poison.decode!(body)
   end
 end
