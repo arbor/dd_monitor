@@ -1,14 +1,19 @@
-defmodule DdMonitorCli.MixProject do
+defmodule DdMonitor.MixFile do
   use Mix.Project
 
   def project do
     [
-      app: :dd_monitor_cli,
+      app: :dd_monitor,
       version: "0.1.0",
       elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      escript: escript()
     ]
+  end
+
+  defp escript do
+    [main_module: DdMonitor.CLI]
   end
 
   # Run "mix help compile.app" to learn about applications.

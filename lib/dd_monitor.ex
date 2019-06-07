@@ -1,6 +1,6 @@
-defmodule DdMonitorCli do
+defmodule DdMonitor.CLI do
   @moduledoc """
-  Documentation for DdMonitorCli.
+  Documentation for DdMonitor.Cli.
   """
 
   require IEx
@@ -16,6 +16,40 @@ defmodule DdMonitorCli do
       :response
 
   """
+
+  def main(args) when length(args) > 0 do
+    {options, param} =
+      OptionParser.parse_head!(args,
+        strict: [action: :string]
+      )
+
+    case options do
+      [action: "list-all"] ->
+        list_all_monitors() |> prettify() |> IO.puts()
+
+      [action: "get-monitor"] ->
+        get_monitor(%{query: List.to_string(param)}) |> prettify() |> IO.puts()
+
+      [] ->
+        print_help_message()
+    end
+  end
+
+  def main(_args) do
+    print_help_message()
+  end
+
+  @commands %{
+    "--action list-all" => "list all monitors",
+    "--action get-monitr tag:env:staging" => "get a monitor by query tag"
+  }
+
+  defp print_help_message do
+    IO.puts("\nThe simulator supports following commands:\n")
+
+    @commands
+    |> Enum.map(fn {command, description} -> IO.puts("  #{command} - #{description}") end)
+  end
 
   def start do
     IEx.pry()
@@ -196,7 +230,15 @@ defmodule DdMonitorCli do
     body |> parse!
   end
 
-  def parse!(body) do
+  defp parse!(body) do
     Poison.decode!(body)
+  end
+
+  defp prettify(monitors) when is_list(monitors) do
+    Poison.encode!(%{monitors: monitors}, pretty: true)
+  end
+
+  defp prettify(monitor) when is_map(monitor) do
+    Poison.encode!(%{monitor: monitor}, pretty: true)
   end
 end

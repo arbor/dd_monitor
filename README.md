@@ -1,4 +1,4 @@
-# DdMonitorCli
+# DdMonitor.Cli
 
 This would be a cli to manage Datadog monitors. Main purpose is to use this as
 part of deploy pipeline where you could set monitor downtime to prevent
@@ -21,6 +21,13 @@ def deps do
 end
 ```
 
+## Usage
+
+```bash
+$ ./dd_monitor --action list-all    
+$ ./dd_monitor --action get-monitor <query_param>
+$ ./dd_monitor --action get-monitor test
+```
 
 
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
