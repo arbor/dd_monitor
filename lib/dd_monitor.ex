@@ -19,43 +19,28 @@ defmodule DdMonitor.CLI do
       --action list-all - list all monitors
 
   """
-
-  def main(args) when length(args) > 0 do
-    {options, param} =
-      OptionParser.parse_head!(args,
-        strict: [action: :string]
-      )
-
-    case options do
-      [action: "list-all"] ->
-        list_all_monitors() |> prettify() |> IO.puts()
-
-      [action: "get-monitor"] ->
-        get_monitor(%{
-          query: build_query(param)
-        })
-        |> prettify()
-        |> IO.puts()
-
-      [action: "get-monitor-id"] ->
-        get_monitor(%{query: build_query(param)})
-        |> get_monitor_id()
-        |> prettify()
-        |> IO.puts()
-
-      [] ->
-        print_help_message()
-    end
+  def main(args) do
+    args |> parse_args |> process
   end
 
-  def main(_args) do
-    print_help_message()
+  def parse_args(args) do
+    options = %{:action => nil, :tags => nil, :scope => nil}
+
+    {opts, args} =
+      OptionParser.parse_head!(args,
+        strict: [action: :string, tags: :string, scope: :string]
+      )
+
+    {Enum.into(opts, options), args}
   end
 
   @commands %{
     "--action list-all" => "list all monitors",
-    "--action get-monitor \"tag:env:staging\" \"name\"" => "get monitor details by query tag",
-    "--action get-monitor-id \"tag:env:test\" \"name\"" => "get a monitor id by query tag"
+    "--action get-monitor --tags \"tag:env:staging\" \"name\"" =>
+      "get monitor details by query tag",
+    "--action get-monitor-id --tags \"tag:env:test\" \"name\"" => "get a monitor id by query tag",
+    "--action set-monitor-downtime --scope dev --tags \"tag:env:test\" \"name\"" =>
+      "set monitor downtime by tag and scope"
   }
 
   defp print_help_message do
@@ -65,8 +50,68 @@ defmodule DdMonitor.CLI do
     |> Enum.map(fn {command, description} -> IO.puts("  #{command} - #{description}") end)
   end
 
-  def start do
-    IEx.pry()
+  def process({options, _}) do
+    IO.inspect(options)
+
+    cond do
+      Map.get(options, :action) == "list-all" ->
+        list_all_monitors() |> prettify() |> IO.puts()
+
+      Map.get(options, :action) == "get-monitor" ->
+        # TODO: DRY below block
+        tags =
+          case Map.get(options, :tags) do
+            nil -> ""
+            _ -> OptionParser.split(Map.get(options, :tags))
+          end
+
+        get_monitor(%{
+          query: build_query(tags)
+        })
+        |> prettify()
+        |> IO.puts()
+
+      Map.get(options, :action) == "get-monitor-id" ->
+        # TODO: DRY below block
+        tags =
+          case Map.get(options, :tags) do
+            nil -> ""
+            _ -> OptionParser.split(Map.get(options, :tags))
+          end
+
+        get_monitor(%{
+          query: build_query(tags)
+        })
+        |> get_monitor_id()
+        |> prettify()
+        |> IO.puts()
+
+      Map.get(options, :action) == "set-monitor-downtime" ->
+        # TODO: DRY below block Map.get blocks
+        tags =
+          case Map.get(options, :tags) do
+            nil -> ""
+            _ -> OptionParser.split(Map.get(options, :tags))
+          end
+
+        scope =
+          case Map.get(options, :scope) do
+            nil ->
+              ""
+
+            _ ->
+              OptionParser.split(Map.get(options, :scope))
+          end
+
+        set_monitor_downtime(%{
+          query: build_query(tags),
+          scope: scope
+        })
+        |> IO.puts()
+
+      true ->
+        print_help_message()
+    end
   end
 
   def headers do
@@ -90,9 +135,15 @@ defmodule DdMonitor.CLI do
 
   def base_url(uri, query_params = %{query: _param}) do
     search_url = "/api/v1/monitor/" <> uri
-    url = URI.merge(base_url(), search_url) |> to_string
-    # TODO: Move below to another function
-    url <> "?" <> build_uri(query_params)
+    URI.merge(base_url(), search_url) |> to_string |> build_monitor_url(query_params)
+  end
+
+  defp build_monitor_url(url, query_params) do
+    "#{url}?#{build_uri(query_params)}"
+  end
+
+  def base_url(action) when action == "downtime" do
+    "https://api.datadoghq.com/api/v1/downtime"
   end
 
   def base_url do
@@ -111,14 +162,17 @@ defmodule DdMonitor.CLI do
     |> URI.encode_query()
   end
 
-  def build_request(params) do
+  def build_request(params, body \\ %{}) do
     %HTTPoison.Request{
       method: params.method,
       headers: headers(),
-      url: params.url()
+      url: params.url(),
+      body: body |> Poison.encode!()
     }
   end
 
+  # This accepts list of tags passed and returns a
+  # Datadog search query format of "tag1 tag2 tag3"
   defp build_query(param) when is_list(param) do
     param
     |> Enum.reduce(fn x, acc -> "#{x} #{acc}" end)
@@ -249,6 +303,17 @@ defmodule DdMonitor.CLI do
     body |> parse!
   end
 
+  def get_monitor(%{query: _query_param} = query) do
+    url = base_url("downtime")
+
+    req =
+      build_request(%{
+        method: :post,
+        headers: headers(),
+        url: url
+      })
+  end
+
   defp parse!(body) do
     Poison.decode!(body)
   end
@@ -273,5 +338,16 @@ defmodule DdMonitor.CLI do
         tags: &1["tags"]
       }
     )
+  end
+
+  #  defp build_monitor_downtime_body(params) do
+  def set_monitor_downtime(params) do
+    IO.puts(params |> Poison.encode!())
+    # Time.add(now, 60)
+    #    %{
+    #    scope: "env:prod",
+    #    start: '"${start}"',
+    #    end: '"${end}"'
+    #    }
   end
 end

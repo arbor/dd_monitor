@@ -13,7 +13,10 @@ defmodule DdMonitor.MixFile do
   end
 
   defp escript do
-    [main_module: DdMonitor.CLI]
+    [
+      main_module: DdMonitor.CLI,
+      path: "./releases/dd-monitor"
+    ]
   end
 
   # Run "mix help compile.app" to learn about applications.

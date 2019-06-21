@@ -24,12 +24,16 @@ end
 ## Usage
 
 ```bash
-$ ./dd_monitor --action list-all    
-$ ./dd_monitor --action get-monitor <query_param>
-$ ./dd_monitor --action get-monitor test
-$ ./dd_monitor --action get-monitor-id "test" "tag:env:test"
+$ ./dd-monitor --action list-all    
+$ ./dd-monitor --action get-monitor --tags <query_param>
+$ ./dd-monitor --action get-monitor --tags test
+$ ./dd-monitor --action get-monitor-id --tags "test tag:env:test"
+$ ./dd-monitor --action get-monitor --tags "tag:env:staging tag:roles:aif_proxy_noredir aif"
 ```
 
+## TBD:
+
+1. Add tests
 
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
