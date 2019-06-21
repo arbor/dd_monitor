@@ -3,8 +3,6 @@ defmodule DdMonitor.CLI do
   Documentation for DdMonitor.Cli.
   """
 
-  require IEx
-
   import HTTPoison
 
   @doc """
@@ -24,11 +22,11 @@ defmodule DdMonitor.CLI do
   end
 
   def parse_args(args) do
-    options = %{:action => nil, :tags => nil, :scope => nil}
+    options = %{:action => nil, :tags => nil, :scope => nil, :end => nil, :message => nil}
 
     {opts, args} =
       OptionParser.parse_head!(args,
-        strict: [action: :string, tags: :string, scope: :string]
+        strict: [action: :string, tags: :string, scope: :string, end: :string, message: :string]
       )
 
     {Enum.into(opts, options), args}
@@ -39,8 +37,9 @@ defmodule DdMonitor.CLI do
     "--action get-monitor --tags \"tag:env:staging\" \"name\"" =>
       "get monitor details by query tag",
     "--action get-monitor-id --tags \"tag:env:test\" \"name\"" => "get a monitor id by query tag",
-    "--action set-monitor-downtime --scope dev --tags \"tag:env:test\" \"name\"" =>
-      "set monitor downtime by tag and scope"
+    "--action set-monitor-downtime --scope dev --tags \"tag:env:test\" \"name\" --end <POSIX_TIMESTAMP> --message \"run deployment\"" =>
+      "set monitor downtime by tag, scope, message and time end POSIX timestamp",
+    "--action cancel-monitor-downtime --scope dev" => "cancel monitor downtime by scope"
   }
 
   defp print_help_message do
@@ -88,6 +87,15 @@ defmodule DdMonitor.CLI do
 
       Map.get(options, :action) == "set-monitor-downtime" ->
         # TODO: DRY below block Map.get blocks
+        end_downtime =
+          case downtime = Map.get(options, :end) do
+            nil ->
+              print_help_message()
+
+            _ ->
+              downtime
+          end
+
         tags =
           case Map.get(options, :tags) do
             nil -> ""
@@ -96,17 +104,30 @@ defmodule DdMonitor.CLI do
 
         scope =
           case Map.get(options, :scope) do
-            nil ->
-              ""
-
-            _ ->
-              OptionParser.split(Map.get(options, :scope))
+            nil -> ""
+            _ -> OptionParser.split(Map.get(options, :scope))
           end
 
         set_monitor_downtime(%{
-          query: build_query(tags),
+          monitor_tags: build_query(tags),
+          scope: scope,
+          end: end_downtime,
+          message: Map.get(options, :message)
+        })
+        |> prettify()
+        |> IO.puts()
+
+      Map.get(options, :action) == "cancel-monitor-downtime" ->
+        scope =
+          case Map.get(options, :scope) do
+            nil -> ""
+            _ -> OptionParser.split(Map.get(options, :scope))
+          end
+
+        cancel_monitor_downtime(%{
           scope: scope
         })
+        |> prettify()
         |> IO.puts()
 
       true ->
@@ -133,41 +154,60 @@ defmodule DdMonitor.CLI do
     %{"api_key" => api_key(), "application_key" => app_key()}
   end
 
-  def base_url(uri, query_params = %{query: _param}) do
-    search_url = "/api/v1/monitor/" <> uri
-    URI.merge(base_url(), search_url) |> to_string |> build_monitor_url(query_params)
-  end
-
   defp build_monitor_url(url, query_params) do
     "#{url}?#{build_uri(query_params)}"
   end
 
-  def base_url(action) when action == "downtime" do
-    "https://api.datadoghq.com/api/v1/downtime"
+  def get_url(action, query_params = %{query: _param}) do
+    url = action_url(action)
+    URI.merge(base_url(), url) |> to_string |> build_monitor_url(query_params)
+  end
+
+  def get_url(action) do
+    url = action_url(action)
+    URI.merge(base_url(), url) |> to_string |> build_monitor_url(%{})
+  end
+
+  def action_url(action) when action == "downtime" do
+    "/api/v1/downtime"
+  end
+
+  def action_url(action) when action == "cancel_downtime" do
+    "/api/v1/downtime/cancel/by_scope"
+  end
+
+  def action_url(action) when action == "search" do
+    "/api/v1/monitor/search"
+  end
+
+  def action_url(action) when action == "monitor" do
+    "/api/v1/monitor"
   end
 
   def base_url do
-    "https://api.datadoghq.com/api/v1/monitor"
+    "https://api.datadoghq.com/"
   end
 
-  def build_uri(uri) do
+  def build_uri(uri \\ %{}) do
     auth()
     |> Enum.into(uri)
     |> URI.encode_query()
   end
 
-  def build_uri() do
-    auth()
-    |> Enum.into(%{})
-    |> URI.encode_query()
-  end
-
-  def build_request(params, body \\ %{}) do
+  def build_request(params, body) when is_map(body) do
     %HTTPoison.Request{
       method: params.method,
       headers: headers(),
       url: params.url(),
-      body: body |> Poison.encode!()
+      body: body.body |> Poison.encode!()
+    }
+  end
+
+  def build_request(params) do
+    %HTTPoison.Request{
+      method: params.method,
+      headers: headers(),
+      url: params.url()
     }
   end
 
@@ -222,7 +262,7 @@ defmodule DdMonitor.CLI do
 
   def list_all_monitors() do
     # TODO: Move below to another function
-    url = base_url() <> "?" <> build_uri()
+    url = get_url("monitor")
 
     req =
       build_request(%{
@@ -290,7 +330,7 @@ defmodule DdMonitor.CLI do
       }
   """
   def get_monitor(%{query: _query_param} = query) do
-    url = base_url("search", query)
+    url = get_url("search", query)
 
     req =
       build_request(%{
@@ -301,17 +341,6 @@ defmodule DdMonitor.CLI do
 
     {:ok, %{status_code: _status_code, body: body}} = request(req)
     body |> parse!
-  end
-
-  def get_monitor(%{query: _query_param} = query) do
-    url = base_url("downtime")
-
-    req =
-      build_request(%{
-        method: :post,
-        headers: headers(),
-        url: url
-      })
   end
 
   defp parse!(body) do
@@ -341,13 +370,29 @@ defmodule DdMonitor.CLI do
   end
 
   #  defp build_monitor_downtime_body(params) do
-  def set_monitor_downtime(params) do
-    IO.puts(params |> Poison.encode!())
-    # Time.add(now, 60)
-    #    %{
-    #    scope: "env:prod",
-    #    start: '"${start}"',
-    #    end: '"${end}"'
-    #    }
+  def set_monitor_downtime(body) do
+    url = get_url("downtime")
+
+    req =
+      build_request(
+        %{method: :post, headers: headers(), url: url},
+        %{body: body}
+      )
+
+    {:ok, %{status_code: _status_code, body: body}} = request(req)
+    body |> parse!
+  end
+
+  def cancel_monitor_downtime(body) do
+    url = get_url("cancel_downtime")
+
+    req =
+      build_request(
+        %{method: :post, headers: headers(), url: url},
+        %{body: body}
+      )
+
+    {:ok, %{status_code: _status_code, body: body}} = request(req)
+    body |> parse!
   end
 end
