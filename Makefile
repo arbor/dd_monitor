@@ -38,6 +38,6 @@ endif
 
 .PHONY: create-tag
 create-tag: next-tag
-	git fetch --tags packetloop
+	git fetch --tags arbor
 	git tag -a v$(TAG) -m "v$(TAG)"
-	git push packetloop v$(TAG)
+	git push arbor v$(TAG)
