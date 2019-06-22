@@ -6,7 +6,7 @@ defaults: &defaults
   working_directory: ~/repo
   docker:
     # specify the version
-    - image: circleci/elixir:1.7
+    - image: circleci/elixir:1.8
 
 jobs:
   test:

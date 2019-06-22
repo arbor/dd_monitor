@@ -5,6 +5,7 @@ defmodule DdMonitor.CLI do
 
   alias Ddog.Monitor
   alias Ddog.Helper
+  alias Ddog.Monitor.Downtime
 
   @doc """
   start
@@ -60,7 +61,6 @@ defmodule DdMonitor.CLI do
         |> IO.puts()
 
       Map.get(options, :action) == "get-monitor" ->
-        # TODO: DRY below block
         tags =
           case Map.get(options, :tags) do
             nil -> ""
@@ -111,7 +111,7 @@ defmodule DdMonitor.CLI do
             _ -> OptionParser.split(Map.get(options, :scope))
           end
 
-        set_monitor_downtime(%{
+        set_monitor_downtime(%Downtime{
           monitor_tags: Helper.build_query(tags),
           scope: scope,
           end: end_downtime,
@@ -127,7 +127,7 @@ defmodule DdMonitor.CLI do
             _ -> OptionParser.split(Map.get(options, :scope))
           end
 
-        cancel_monitor_downtime(%{
+        cancel_monitor_downtime(%Downtime{
           scope: scope
         })
         |> Helper.prettify()
@@ -144,20 +144,19 @@ defmodule DdMonitor.CLI do
     |> parse!
   end
 
-  def get_monitor(%{query: _query_param} = query) do
+  def get_monitor(%{query: _tag} = query) do
     Monitor.call(:search, query)
     |> decode_response
     |> parse!
   end
 
-  #  defp build_monitor_downtime_body(params) do
-  def set_monitor_downtime(body) do
+  def set_monitor_downtime(%Downtime{} = body) do
     Monitor.call(:set_monitor_downtime, body)
     |> decode_response
     |> parse!
   end
 
-  def cancel_monitor_downtime(body) do
+  def cancel_monitor_downtime(%Downtime{} = body) do
     Monitor.call(:cancel_monitor_downtime_by_scope, body)
     |> decode_response
     |> parse!

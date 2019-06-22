@@ -31,7 +31,7 @@ defmodule DdMonitor.MixFile do
     [
       {:httpoison, "~> 1.4"},
       {:poison, "~> 3.1"},
-      {:ddog, git: "https://github.com/lenfree/ddog.git"}
+      {:ddog, "~> 0.1"}
     ]
   end
 end
