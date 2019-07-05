@@ -24,11 +24,25 @@ defmodule DdMonitor.CLI do
   end
 
   def parse_args(args) do
-    options = %{:action => nil, :tags => nil, :scope => nil, :end => nil, :message => nil}
+    options = %{
+      :action => nil,
+      :tags => nil,
+      :scope => nil,
+      :end => nil,
+      :message => nil,
+      :id => nil
+    }
 
     {opts, args} =
       OptionParser.parse_head!(args,
-        strict: [action: :string, tags: :string, scope: :string, end: :string, message: :string]
+        strict: [
+          action: :string,
+          tags: :string,
+          scope: :string,
+          end: :string,
+          message: :string,
+          id: :string
+        ]
       )
 
     {Enum.into(opts, options), args}
@@ -41,7 +55,8 @@ defmodule DdMonitor.CLI do
     "--action get-monitor-id --tags \"tag:env:test\" \"name\"" => "get a monitor id by query tag",
     "--action set-monitor-downtime --scope dev --tags \"tag:env:test\" \"name\" --end <POSIX_TIMESTAMP> --message \"run deployment\"" =>
       "set monitor downtime by tag, scope, message and time end POSIX timestamp",
-    "--action cancel-monitor-downtime --scope dev" => "cancel monitor downtime by scope"
+    "--action cancel-monitor-downtime --scope dev" => "cancel monitor downtime by scope",
+    "--action delete-monitor --id 123" => "delete a monitor by id"
   }
 
   defp print_help_message do
@@ -107,8 +122,13 @@ defmodule DdMonitor.CLI do
 
         scope =
           case Map.get(options, :scope) do
-            nil -> ""
-            _ -> OptionParser.split(Map.get(options, :scope))
+            nil ->
+              IO.puts("param --scope <monitor_scope> is required.")
+              print_help_message()
+              System.halt(2)
+
+            _ ->
+              OptionParser.split(Map.get(options, :scope))
           end
 
         set_monitor_downtime(%Downtime{
@@ -123,13 +143,34 @@ defmodule DdMonitor.CLI do
       Map.get(options, :action) == "cancel-monitor-downtime" ->
         scope =
           case Map.get(options, :scope) do
-            nil -> ""
-            _ -> OptionParser.split(Map.get(options, :scope))
+            nil ->
+              IO.puts("param --scope <monitor_scope> is required.")
+              print_help_message()
+              System.halt(2)
+
+            _ ->
+              OptionParser.split(Map.get(options, :scope))
           end
 
         cancel_monitor_downtime(%Downtime{
           scope: scope
         })
+        |> Helper.prettify()
+        |> IO.puts()
+
+      Map.get(options, :action) == "delete-monitor" ->
+        id =
+          case Map.get(options, :id) do
+            nil ->
+              IO.puts("param --id <monitor_id> is required.")
+              print_help_message()
+              System.halt(2)
+
+            _ ->
+              OptionParser.split(Map.get(options, :id))
+          end
+
+        delete_monitor(id)
         |> Helper.prettify()
         |> IO.puts()
 
@@ -162,10 +203,16 @@ defmodule DdMonitor.CLI do
     |> parse!
   end
 
+  def delete_monitor(id) do
+    Monitor.call(:delete_monitor, id)
+    |> decode_response
+    |> parse!
+  end
+
   def decode_response({:ok, body}), do: body
 
   def decode_response({:error, error}) do
-    IO.puts("Error fetching from Datadog: #{error["message"]}")
+    IO.puts("Error fetching from Datadog: #{error}")
     System.halt(2)
   end
 
