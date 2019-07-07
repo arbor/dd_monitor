@@ -33,10 +33,11 @@ $ ./dd-monitor --action get-monitor --tags <query_param>
 $ ./dd-monitor --action get-monitor --tags localhost
 $ ./dd-monitor --action get-monitor-id --tags "test tag:env:test"
 $ ./dd-monitor --action get-monitor --tags "tag:env:staging tag:roles:myrole localhost"
-$ end="$((`date +%s`+3600))"    
+$ d="$((`date +%s`+3600))"    
 $ ./dd-monitor --action set-monitor-downtime --tags "env:staging owner:me" --scope "roles:myrole process:sshd" --end $d
 $ ./dd-monitor --action set-monitor-downtime --tags "env:staging owner:me" --scope "roles:myrole process:sshd" --end $d --mesage "make release"
 $ ./dd-monitor --action cancel-monitor-downtime --scope "roles:myrole process:sshd" 
+$ ./dd-monitor --action delete-monitor --id "123" 
 ```
 
 ## TBD:

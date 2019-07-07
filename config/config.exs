@@ -1,22 +1,26 @@
-# This file is responsible for configuring your application
-# and its dependencies with the aid of the Mix.Config module.
 use Mix.Config
+
+config :ddog,
+  monitor_url: "https://api.datadoghq.com/api/v1/monitor",
+  monitor_search_url: "https://api.datadoghq.com/api/v1/monitor/search",
+  monitor_downtime_url: "https://api.datadoghq.com/api/v1/downtime",
+  monitor_cancel_downtime_byscope_url: "https://api.datadoghq.com/api/v1/downtime/cancel/by_scope"
 
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this
 # file won't be loaded nor affect the parent project. For this reason,
 # if you want to provide default values for your application for
-# 3rd-party users, it should be done in your "mix.exs" file.
+# third-party users, it should be done in your "mix.exs" file.
 
 # You can configure your application as:
 #
-#     config :dd_monitor_cli, key: :value
+#     config :ddog, key: :value
 #
 # and access this configuration in your application as:
 #
-#     Application.get_env(:dd_monitor_cli, :key)
+#     Application.get_env(:ddog, :key)
 #
-# You can also configure a 3rd-party app:
+# You can also configure a third-party app:
 #
 #     config :logger, level: :info
 #
