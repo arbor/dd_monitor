@@ -22,8 +22,7 @@ publish:
 		-u ${CIRCLE_PROJECT_USERNAME} \
 		-r ${CIRCLE_PROJECT_REPONAME} \
 		-c ${CIRCLE_SHA1} \
-		-delete ${GIT_TAG} ./releases/
-
+		-delete $(GIT_TAG) ./releases
 
 .PHONY: download
 download:
