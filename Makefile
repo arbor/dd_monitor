@@ -18,10 +18,10 @@ test:
 .PHONY: publish
 publish:
 	mix escript.build
-	$(GHR) -t ${GITHUB_TOKEN} \
-		-u ${CIRCLE_PROJECT_USERNAME} \
-		-r ${CIRCLE_PROJECT_REPONAME} \
-		-c ${CIRCLE_SHA1} \
+	$(GHR) \
+		-u $(CIRCLE_PROJECT_USERNAME) \
+		-r $(CIRCLE_PROJECT_REPONAME) \
+		-c $(CIRCLE_SHA1) \
 		-delete $(GIT_TAG) ./releases
 
 .PHONY: download
