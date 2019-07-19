@@ -28,7 +28,7 @@ publish:
 .PHONY: download
 download:
 	curl -L $(GHR_URL) | tar -xz
-	$(GHR)
+	which $(GHR)
 
 .PHONY: next-tag
 next-tag:
