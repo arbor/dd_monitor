@@ -18,7 +18,7 @@ test:
 .PHONY: publish
 publish:
 	mix escript.build
-	ghr -t ${GITHUB_TOKEN} \
+	$(GHR) -t ${GITHUB_TOKEN} \
 		-u ${CIRCLE_PROJECT_USERNAME} \
 		-r ${CIRCLE_PROJECT_REPONAME} \
 		-c ${CIRCLE_SHA1} \
@@ -28,7 +28,7 @@ publish:
 .PHONY: download
 download:
 	curl -L $(GHR_URL) | tar -xz
-	which $(GHR)
+	$(GHR) -v
 
 .PHONY: next-tag
 next-tag:
